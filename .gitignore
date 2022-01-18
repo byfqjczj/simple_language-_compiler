@@ -1,0 +1,7 @@
+build/
+*.diff
+*.result
+*.out
+*.time
+*.s
+*.arm

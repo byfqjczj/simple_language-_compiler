@@ -1,0 +1,16 @@
+- Write a fun program that runs in 10 seconds when using your fun interpreter
+  from p2. Please don't commit it. Run the compiled version from p4, how long
+  does it take to run?
+
+- Why does compiled code run faster than interpreted code?
+
+- Does your code run as fast as it could? What is slowing it down?
+
+- What is emulator? Use your words and give examples
+
+- What is a cross-compiler? Use your words and give examples
+
+- What is a tool-chain? Use your words and give examples
+
+- Why did I add the "argc" requirement in this assignment?
+
