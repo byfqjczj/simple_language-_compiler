@@ -1,3 +1,15 @@
+c = test-for-arg-c
+print argc
+argc = 100
+print argc
+c = robustness-test-for-arm-keywords
+main = 10
+LDR = 10
+LR = 0
+ADD = 0
+SP = 0
+start = 0
+
 c = test - for - basic - logic - operators
 x = 1
 print x<1
