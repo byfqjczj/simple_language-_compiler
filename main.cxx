@@ -17,9 +17,17 @@
 #include <vector>
 #include <string>
 using namespace std;
-//this initalizes the global variables, the stack is implemented by creating two large arrays that stores the PC of each stack and the localIt of each function call.
-//the stack pointer is initialized to 0(SP), and everytime a function is added to the call stack, it gets incremented and vice versa.
-//global it is done by reserving localIt[0] for the global variation of the it variable
+
+/*
+There are some similarities between P4 and P2, mainly from the scheme of parsing information. However, there are key differences.
+The big one is that there are no more local variables, so for you to save things, you have to use the stack and memory.
+Another big one is that branching must be done in assembly.
+My program consists of two main steps: pre-processing all the variables in the data section and initializing them to 0, and then actualling running the code.
+*/
+
+
+//this initalizes the global variables
+//there really isnt much to it, I just kept some to make sure that the labels are enumerated in a way that they dont repeat
     uint64_t localIt[10000];
     char * PCtoBranch[10000];
     int stackPointer = 0;
@@ -43,6 +51,7 @@ using namespace std;
     int fCounter = 0;
     int shortCircuitCounter = 0;
     int moduloCounter = 0;
+    //the whole scheme of consuming was not changed.
   void unused(uint64_t bruh)
     {
         bruh = bruh;
@@ -171,27 +180,14 @@ using namespace std;
 
     // () [] . -> ...
     
-    //the logic here is that if effects is true, then we would actually evalute the logic. If it is false, we would just increment the PC until effects is true.
-
+    //Effects is formalized the falling way: on every expression call, the result of that expression call will be pushed on top of the stack.
+    //Hence, on every E1 call, you will push the stack by 1
+    //On every non e1 effects call, you will get the top 2 values on the stack as the operands, do operation, and then push the result onto the stack.
+    //This effectively guarantees that at the end of every expression call, the result will be on top of the stack, and the register values could be ignored.
     void e1(bool effects) {
-        //printf("%s\n","test");
-        //the logic here checks for the case where IT is called.
-        //honored by checking the stackPointer and then returning it from the localIt array
-        /*
-        if(peek("itFAKE"))
-        {
-            if(consume("itFAKE")) {
-                if(effects)
-                {
-                    cout << "    SUB SP, SP, #16" << endl;
-                    cout << "    MOVZ X7, #0" << endl;
-                    cout << "    STR x7, [SP]"<< endl;
-                    return;
-                }
-            }
-            return;
-        }
-        */
+        //It is permanently stored inside the x11 register.
+        //on every function call, it is pushed onto the stack with the link register.
+        //and you pop it off when you exit the function.
         if(peek("it")&&!isalpha(*(current+3)))
         {
             if(consume("it")) {
@@ -236,7 +232,11 @@ using namespace std;
                 return;
             }  
         }
-        
+        //function calls are formalized with 2 labels. One that is at the start of the function, and one at the end.
+        // When the function is first created(aka not called), you jump to the label at the end, and the label to the beginning is saved to the variable that represents the function.
+        //function calls are handeled by getting the expression before the parenthesis, and then branching to that memory location using BLR.
+        //before every function call, the link register and x11 is pushed onto the stack, and after every function call, they are popped off.
+        //I technically also pushed the stack frame for generalities sake, but it is actually never used.
         if (consume("fun")) {
             int temp = 0;
             if(effects)
@@ -289,6 +289,7 @@ using namespace std;
                 cout << "    STR X7, [SP]" << endl;
                 
             }
+            //saving the current environment.
             if(peek("("))
             {
                 while(consume("("))
@@ -325,8 +326,10 @@ using namespace std;
             }
             return;
         }
+        //consumes the variable, done by basically retrieving the value stored by the label and then pushing it onto the stack
         Slice* slicePtrTwo = consume_identifier();
         if (slicePtrTwo!=NULL) {
+            //preprocessing: loads the variable name into a list.
             if(isPreProcess==true)
             {
                 string currStr = ".";
@@ -339,7 +342,6 @@ using namespace std;
             }
             if(effects)
             {
-                //uint64_t v = sliceToIntHashMapGet(s_table,slicePtrTwo);
                 string sliceStr = ".";
                 for(int i = 0;(size_t)i<slicePtrTwo->len;i++)
                 {
@@ -394,6 +396,7 @@ using namespace std;
                 return;
             }   
         }
+        //consumes a literal, writes it directly on top of the stack
         uint64_t* cons_litPtr = consume_literal();
         if (cons_litPtr!=NULL) {
             uint64_t temp = *cons_litPtr;
@@ -472,6 +475,8 @@ using namespace std;
         fail();
         return;
     }
+    //e2-e16 is handeled very similarly. I used the same parsing logic, and then when I detect the symbol i want, I pop twice from stack, perform operation, and then push result onto the stack.
+
 
     // ++ -- unary+ unary- ... (Right) deprecated
     void e2(bool effects) {
@@ -600,18 +605,6 @@ using namespace std;
                         cout << "    CSEL x7, x8, xzr, LS" << endl;
                         cout << "    SUB SP, SP, #16"<< endl;
                         cout << "    STR x7, [SP]" << endl;
-                        // cout << "    BGT .L" << labelCounter<< endl;
-                        // cout << "    MOV x7, 1"<<endl;
-                        // cout << "    SUB SP, SP, #16"<< endl;
-                        // cout << "    STR x7, [SP]" << endl;
-                        // cout << "    B    .L" << labelCounter+1<<endl;
-                        // cout << ".L"<<labelCounter<<":"<<endl;
-                        // labelCounter++;
-                        // cout << "    MOV x7, 0"<<endl;
-                        // cout << "    SUB SP, SP, #16"<< endl;
-                        // cout << "    STR x7, [SP]" << endl;
-                        // cout << ".L"<<labelCounter<<":"<<endl;
-                        // labelCounter++;
                     }
                 }
             }
@@ -628,18 +621,6 @@ using namespace std;
                     cout << "    CSEL x7, x8, xzr, LO" << endl;
                     cout << "    SUB SP, SP, #16"<< endl;
                     cout << "    STR x7, [SP]" << endl;
-                    // cout << "    BGE .L" << labelCounter<< endl;
-                    // cout << "    MOV x7, 1"<<endl;
-                    // cout << "    SUB SP, SP, #16"<< endl;
-                    // cout << "    STR x7, [SP]" << endl;
-                    // cout << "    B    .L" << labelCounter+1<<endl;
-                    // cout << ".L"<<labelCounter<<":"<<endl;
-                    // labelCounter++;
-                    // cout << "    MOV x7, 0"<<endl;
-                    // cout << "    SUB SP, SP, #16"<< endl;
-                    // cout << "    STR x7, [SP]" << endl;
-                    // cout << ".L"<<labelCounter<<":"<<endl;
-                    // labelCounter++;
                 }
             }
             else if(consume(">=")) {
@@ -655,18 +636,6 @@ using namespace std;
                     cout << "    CSEL x7, x8, xzr, HS" << endl;
                     cout << "    SUB SP, SP, #16"<< endl;
                     cout << "    STR x7, [SP]" << endl;
-                    // cout << "    BLT .L" << labelCounter<< endl;
-                    // cout << "    MOV x7, 1"<<endl;
-                    // cout << "    SUB SP, SP, #16"<< endl;
-                    // cout << "    STR x7, [SP]" << endl;
-                    // cout << "    B    .L" << labelCounter+1<<endl;
-                    // cout << ".L"<<labelCounter<<":"<<endl;
-                    // labelCounter++;
-                    // cout << "    MOV x7, 0"<<endl;
-                    // cout << "    SUB SP, SP, #16"<< endl;
-                    // cout << "    STR x7, [SP]" << endl;
-                    // cout << ".L"<<labelCounter<<":"<<endl;
-                    // labelCounter++;
                 }
             }
             else if(consume(">"))  {
@@ -682,18 +651,6 @@ using namespace std;
                     cout << "    CSEL x7, x8, xzr, HI" << endl;
                     cout << "    SUB SP, SP, #16"<< endl;
                     cout << "    STR x7, [SP]" << endl;
-                    // cout << "    BLE .L" << labelCounter<< endl;
-                    // cout << "    MOV x7, 1"<<endl;
-                    // cout << "    SUB SP, SP, #16"<< endl;
-                    // cout << "    STR x7, [SP]" << endl;
-                    // cout << "    B    .L" << labelCounter+1<<endl;
-                    // cout << ".L"<<labelCounter<<":"<<endl;
-                    // labelCounter++;
-                    // cout << "    MOV x7, 0"<<endl;
-                    // cout << "    SUB SP, SP, #16"<< endl;
-                    // cout << "    STR x7, [SP]" << endl;
-                    // cout << ".L"<<labelCounter<<":"<<endl;
-                    // labelCounter++;
                 }
             }
             else
@@ -846,7 +803,7 @@ using namespace std;
             }
         }
     }
-    //short circuiting is done through an if statement, which would render the other half to have a false effect(only increment PC).
+    //short circuiting is done by writing a label to the end of that effect, and then everytime an expression evaluates to a value that will short circuit, I will branch to the label.
     // &&
     void e11(bool effects) {
         int temp = 0;
@@ -978,8 +935,7 @@ using namespace std;
     }
 
     bool statement(bool effects) {
-
-        //this deals with it as the start of a statement(aka a varaible), essentially implemented by just treating it as variable.
+        //this deals with it as the start of a statement(aka a varaible), which just stores the expression into x11.
         if(peek("it")&&!isalpha(*(current+3)))
         {
             if(consume("it"))
@@ -1001,6 +957,7 @@ using namespace std;
             }
         }
         }
+        //return is quite trivial for this, since I am handling link register push and pop when functions are called, guaranteeing X30 will always contain the right value.
         if(consume("return")) {
             expression(effects);
             if(effects)
@@ -1027,7 +984,8 @@ using namespace std;
             }
             return true;
         }
-        //the while block here keeps a pointer to the start, and then constantly jumps to it until the logic fails
+        //the while block contains two labels, one at the end and one at the start. After you evaluate the conditional, if it is false you jump to the label at the end.
+        //when you traverse to the end of the while block, it will contain a branch that branches to the start. Keep in mind this branch to the start is before the label at the end.
         if (consume("while"))
         {
             int temp = 0;
@@ -1066,8 +1024,9 @@ using namespace std;
 
             return true;
         }
-        //the if block would have effects treated as "true" if the logic inside is evaluated to be true, and vice verse.
-        //else is implemented the same way
+        //the if block contains 2 labels. One directly prior to the else block and one after the else block.
+        //If the conditional is evaluted to be true, it will evaluate on, and then before hitting the label prior to else block, it will branch to the label after the else block.
+        //if the conditional is evaluates to be false, it will just branch to the label prior to the else block.
         if (consume("if")) 
         {
             int temp = 0;
@@ -1132,6 +1091,7 @@ using namespace std;
             }
             return true;
         }
+        //same logic as before.
         Slice* slicePtrOne = consume_identifier();
         if (slicePtrOne!=NULL) {
             if(isPreProcess==true)
@@ -1144,7 +1104,7 @@ using namespace std;
                 }
                 varM.insert(currStr);
             }
-            // x = ...
+            //equal sign just writes the expression into the memory denotes by the label
             if (consume("=")) {
                 //uint64_t v = expression(effects);
                 expression(effects);
@@ -1233,6 +1193,7 @@ int main(int argc, const char *const *const argv) {
     printf(".align 8\n");
     printf(".argc:\n");
     printf("    .quad 0\n");
+    //sets up the data section
     for (auto itr = varM.begin(); itr != varM.end(); ++itr) {
     if((*itr) != "it" && (*itr) != ".argc")
         {    
@@ -1244,6 +1205,7 @@ int main(int argc, const char *const *const argv) {
     printf(".text\n");
     printf(".global main\n");
     printf("main:\n");
+    //this section initializes argc
     cout << "    ADRP X1, .argc" << endl;
     cout << "    ADD X1, X1, :lo12:.argc" << endl;
     cout << "    STR x0, [X1]"<<endl;
